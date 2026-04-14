@@ -12,8 +12,10 @@ import {
 	oauthEnabled,
 	validateAccessToken,
 	validateClientCredentials,
+	validateRefreshToken,
 } from "./auth.ts";
 import { getPage } from "./browser/session.ts";
+import { logger } from "./logger.ts";
 import { registerSearchTool } from "./tools/search.ts";
 import { registerStoresTool } from "./tools/stores.ts";
 
@@ -31,11 +33,12 @@ function createServer(baseUrl?: string): McpServer {
 }
 
 if (process.argv.includes("--stdio")) {
+	logger.info("Starting in stdio mode");
 	const server = createServer();
 	const transport = new StdioServerTransport();
 	await server.connect(transport);
 	getPage().catch((err) => {
-		console.warn("Browser pre-init failed (will retry on first request):", err.message);
+		logger.warn({ err }, "Browser pre-init failed (will retry on first request)");
 	});
 } else {
 	startHttpServer();
@@ -64,6 +67,7 @@ function startHttpServer() {
 		const cutoff = Date.now() - SESSION_TTL;
 		for (const [id, entry] of transports) {
 			if (entry.lastActivity < cutoff) {
+				logger.info({ sessionId: id }, "Expiring idle MCP session");
 				entry.transport.close?.();
 				transports.delete(id);
 			}
@@ -74,7 +78,7 @@ function startHttpServer() {
 	const authToken = process.env.MCP_AUTH_TOKEN;
 
 	if (!authToken && !oauthEnabled) {
-		console.warn("WARNING: No authentication configured — running without auth");
+		logger.warn("No authentication configured — running without auth");
 	}
 
 	function checkAuth(req: Request): boolean {
@@ -103,6 +107,7 @@ function startHttpServer() {
 		port,
 		async fetch(req: Request): Promise<Response> {
 			const url = new URL(req.url);
+			logger.debug({ method: req.method, path: url.pathname }, "Incoming request");
 
 			if (oauthEnabled) {
 				if (req.method === "GET") {
@@ -120,7 +125,7 @@ function startHttpServer() {
 							authorization_endpoint: `${base}/authorize`,
 							token_endpoint: `${base}/token`,
 							token_endpoint_auth_methods_supported: ["client_secret_post"],
-							grant_types_supported: ["authorization_code", "client_credentials"],
+							grant_types_supported: ["authorization_code", "client_credentials", "refresh_token"],
 							response_types_supported: ["code"],
 							code_challenge_methods_supported: ["S256"],
 						});
@@ -188,6 +193,14 @@ function startHttpServer() {
 						return Response.json(issueAccessToken());
 					}
 
+					if (grantType === "refresh_token") {
+						const refreshToken = params.get("refresh_token");
+						if (!refreshToken || !validateRefreshToken(refreshToken)) {
+							return Response.json({ error: "invalid_grant" }, { status: 400 });
+						}
+						return Response.json(issueAccessToken());
+					}
+
 					return Response.json({ error: "unsupported_grant_type" }, { status: 400 });
 				}
 			}
@@ -201,6 +214,7 @@ function startHttpServer() {
 			}
 
 			if (!checkAuth(req)) {
+				logger.warn({ method: req.method, path: url.pathname }, "Auth rejected");
 				const headers: Record<string, string> = {};
 				if (oauthEnabled) {
 					const base = getBaseUrl(req);
@@ -232,6 +246,7 @@ function startHttpServer() {
 					const transport = new WebStandardStreamableHTTPServerTransport({
 						sessionIdGenerator: () => randomUUID(),
 						onsessioninitialized: (sid) => {
+							logger.info({ sessionId: sid }, "New MCP session initialized");
 							transports.set(sid, {
 								transport,
 								lastActivity: Date.now(),
@@ -276,10 +291,10 @@ function startHttpServer() {
 		},
 	});
 
-	console.log(`K-Ruoka MCP server listening on http://localhost:${port}/mcp`);
+	logger.info({ port, url: `http://localhost:${port}/mcp` }, "K-Ruoka MCP server listening");
 
 	// Eagerly initialize browser session so the first request isn't slow
 	getPage().catch((err) => {
-		console.warn("Browser pre-init failed (will retry on first request):", err.message);
+		logger.warn({ err }, "Browser pre-init failed (will retry on first request)");
 	});
 }

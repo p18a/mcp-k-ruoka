@@ -3,6 +3,7 @@ import { join } from "node:path";
 import type { BrowserContext, Page } from "playwright";
 import { chromium } from "playwright-extra";
 import StealthPlugin from "puppeteer-extra-plugin-stealth";
+import { logger } from "../logger.ts";
 
 chromium.use(StealthPlugin());
 
@@ -16,15 +17,18 @@ let initPromise: Promise<Page> | null = null;
 const dataDir = join(import.meta.dirname, "..", "..", ".browser-data");
 
 async function launch(): Promise<void> {
+	logger.info({ dataDir }, "Launching browser");
 	context = await chromium.launchPersistentContext(dataDir, {
 		headless: true,
 		userAgent:
 			"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
 		locale: "fi-FI",
 	});
+	logger.info("Browser launched");
 }
 
 async function navigateToSite(p: Page): Promise<void> {
+	logger.info("Navigating to K-Ruoka");
 	const response = await p.goto(`${BASE_URL}/kauppa`, {
 		waitUntil: "domcontentloaded",
 		timeout: 30000,
@@ -33,6 +37,7 @@ async function navigateToSite(p: Page): Promise<void> {
 	await p.waitForFunction('document.title !== "Just a moment..."', {
 		timeout: 15000,
 	});
+	logger.info("Cloudflare challenge passed");
 
 	// Extract build number from response header
 	buildNumber = (await response?.headerValue("k-ruoka-build")) ?? null;
@@ -49,6 +54,7 @@ async function navigateToSite(p: Page): Promise<void> {
 			})()
 		`);
 	}
+	logger.info({ buildNumber }, "Build number resolved");
 }
 
 async function doInitialize(): Promise<Page> {
@@ -81,6 +87,7 @@ export function getBuildNumber(): string {
 }
 
 export async function resetSession(): Promise<void> {
+	logger.warn("Resetting browser session");
 	if (page && !page.isClosed()) {
 		await page.close().catch(() => {});
 	}
@@ -94,6 +101,7 @@ export async function resetSession(): Promise<void> {
 	// Nuke the data directory
 	if (existsSync(dataDir)) {
 		rmSync(dataDir, { recursive: true, force: true });
+		logger.info({ dataDir }, "Browser data directory removed");
 	}
 
 	buildNumber = null;

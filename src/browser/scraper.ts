@@ -1,46 +1,84 @@
+import * as z from "zod/v4";
+import { logger } from "../logger.ts";
 import type { Product, SearchResult, Store } from "../types.ts";
 import { getBuildNumber, getPage, resetSession } from "./session.ts";
 
-interface ApiProduct {
-	id: string;
-	product: {
-		ean: string;
-		localizedName: { finnish: string };
-		images?: string[];
-		mobilescan?: {
-			pricing?: {
-				normal?: {
-					price: number;
-					unitPrice?: { value: number; unit: string; contentSize: number };
-				};
-			};
-		};
-		brand?: { name: string };
-		category?: {
-			localizedName?: { finnish: string };
-		};
-	};
+// -- Zod schemas for API responses --
+
+const BlockedResponseSchema = z.object({
+	_blocked: z.literal(true),
+	_status: z.number(),
+	_body: z.string(),
+});
+
+const ApiProductSchema = z.object({
+	id: z.string(),
+	product: z.object({
+		ean: z.string(),
+		localizedName: z.object({ finnish: z.string() }),
+		images: z.array(z.string()).optional(),
+		mobilescan: z
+			.object({
+				pricing: z
+					.object({
+						normal: z
+							.object({
+								price: z.number(),
+								unitPrice: z
+									.object({
+										value: z.number(),
+										unit: z.string(),
+										contentSize: z.number(),
+									})
+									.optional(),
+							})
+							.optional(),
+					})
+					.optional(),
+			})
+			.optional(),
+		brand: z.object({ name: z.string() }).optional(),
+		category: z
+			.object({
+				localizedName: z.object({ finnish: z.string() }).optional(),
+			})
+			.optional(),
+	}),
+});
+
+const ApiSearchResponseSchema = z.object({
+	result: z.array(ApiProductSchema).optional(),
+	error: z.object({ message: z.string() }).optional(),
+});
+
+const SearchEvalResultSchema = z.union([BlockedResponseSchema, ApiSearchResponseSchema]);
+type SearchEvalResult = z.infer<typeof SearchEvalResultSchema>;
+
+const ApiStoreSchema = z.object({
+	id: z.string(),
+	name: z.string(),
+	chain: z.string(),
+	chainName: z.string(),
+	location: z.string(),
+	isWebStore: z.boolean(),
+});
+
+const ApiStoresResponseSchema = z.object({
+	results: z.array(ApiStoreSchema).optional(),
+});
+
+const StoresEvalResultSchema = z.union([BlockedResponseSchema, ApiStoresResponseSchema]);
+type StoresEvalResult = z.infer<typeof StoresEvalResultSchema>;
+
+// -- Helpers --
+
+function isBlocked(
+	data: SearchEvalResult | StoresEvalResult,
+): data is z.infer<typeof BlockedResponseSchema> {
+	return "_blocked" in data;
 }
 
-interface ApiSearchResponse {
-	result?: ApiProduct[];
-	error?: { message: string };
-}
-
-interface ApiStore {
-	id: string;
-	name: string;
-	chain: string;
-	chainName: string;
-	location: string;
-	isWebStore: boolean;
-}
-
-interface ApiStoresResponse {
-	results?: ApiStore[];
-}
-
-function parseProduct(item: ApiProduct): Product {
+function parseProduct(item: z.infer<typeof ApiProductSchema>): Product {
 	const p = item.product;
 	const pricing = p.mobilescan?.pricing?.normal;
 	const unitPrice = pricing?.unitPrice;
@@ -58,15 +96,17 @@ function parseProduct(item: ApiProduct): Product {
 	};
 }
 
+// -- API fetchers --
+
 async function fetchSearchApi(
 	query: string,
 	storeId: string,
 	limit: number,
-): Promise<ApiSearchResponse> {
+): Promise<SearchEvalResult> {
 	const page = await getPage();
 	const buildNumber = getBuildNumber();
 
-	return (await page.evaluate(
+	const raw = await page.evaluate(
 		async ({
 			query,
 			storeId,
@@ -100,27 +140,42 @@ async function fetchSearchApi(
 			return JSON.parse(body);
 		},
 		{ query, storeId, limit, buildNumber },
-	)) as ApiSearchResponse & { _blocked?: boolean; _status?: number; _body?: string };
+	);
+
+	return SearchEvalResultSchema.parse(raw);
 }
+
+async function fetchStoresApi(): Promise<StoresEvalResult> {
+	const page = await getPage();
+
+	const raw = await page.evaluate(async () => {
+		const res = await fetch("/kr-api/stores");
+		const body = await res.text();
+		if (res.status === 403 || body.includes("cf-challenge")) {
+			return { _blocked: true, _status: res.status, _body: body };
+		}
+		return JSON.parse(body);
+	});
+
+	return StoresEvalResultSchema.parse(raw);
+}
+
+// -- Exported functions --
 
 export async function searchProducts(
 	query: string,
 	storeId: string,
 	limit: number,
 ): Promise<SearchResult> {
+	logger.info({ query, storeId, limit }, "Searching products");
+
 	let data = await fetchSearchApi(query, storeId, limit);
 
-	// Detect Cloudflare block and retry once after reset
-	const raw = data as ApiSearchResponse & {
-		_blocked?: boolean;
-		_status?: number;
-		_body?: string;
-	};
-	if (raw._blocked) {
+	if (isBlocked(data)) {
+		logger.warn({ status: data._status }, "Cloudflare block on product search, resetting session");
 		await resetSession();
 		data = await fetchSearchApi(query, storeId, limit);
-		const retry = data as typeof raw;
-		if (retry._blocked) {
+		if (isBlocked(data)) {
 			throw new Error("Blocked by Cloudflare after session reset");
 		}
 	}
@@ -131,6 +186,8 @@ export async function searchProducts(
 
 	const products = (data.result ?? []).map(parseProduct);
 
+	logger.info({ query, resultCount: products.length }, "Product search completed");
+
 	return {
 		products,
 		totalCount: products.length,
@@ -139,29 +196,16 @@ export async function searchProducts(
 	};
 }
 
-async function fetchStoresApi(): Promise<ApiStoresResponse> {
-	const page = await getPage();
-
-	return (await page.evaluate(async () => {
-		const res = await fetch("/kr-api/stores");
-		const body = await res.text();
-		if (res.status === 403 || body.includes("cf-challenge")) {
-			return { _blocked: true, _status: res.status, _body: body };
-		}
-		return JSON.parse(body);
-	})) as ApiStoresResponse & { _blocked?: boolean; _status?: number; _body?: string };
-}
-
 export async function getStores(city?: string): Promise<Store[]> {
+	logger.info({ city: city ?? "all" }, "Fetching stores");
+
 	let data = await fetchStoresApi();
 
-	// Detect Cloudflare block and retry once after reset
-	const raw = data as ApiStoresResponse & { _blocked?: boolean };
-	if (raw._blocked) {
+	if (isBlocked(data)) {
+		logger.warn({ status: data._status }, "Cloudflare block on stores fetch, resetting session");
 		await resetSession();
 		data = await fetchStoresApi();
-		const retry = data as typeof raw;
-		if (retry._blocked) {
+		if (isBlocked(data)) {
 			throw new Error("Blocked by Cloudflare after session reset");
 		}
 	}
@@ -179,6 +223,8 @@ export async function getStores(city?: string): Promise<Store[]> {
 		const lower = city.toLowerCase();
 		stores = stores.filter((s) => s.location.toLowerCase().includes(lower));
 	}
+
+	logger.info({ city: city ?? "all", storeCount: stores.length }, "Stores fetched");
 
 	return stores;
 }

@@ -1,8 +1,10 @@
 import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
+import * as z from "zod/v4";
 
 const clientId = process.env.OAUTH_CLIENT_ID ?? "";
 const clientSecret = process.env.OAUTH_CLIENT_SECRET ?? "";
-const TOKEN_EXPIRY = 3600;
+const TOKEN_EXPIRY = 7 * 24 * 3600; // 1 week
+const REFRESH_TOKEN_EXPIRY = 30 * 24 * 3600; // 30 days
 const CODE_TTL = 60_000; // 60 seconds in ms
 
 export const oauthEnabled = clientId.length > 0 && clientSecret.length > 0;
@@ -85,41 +87,68 @@ export function exchangeAuthCode(params: {
 	return issueAccessToken();
 }
 
-// --- JWT access tokens ---
+// --- JWT tokens ---
 
-export function issueAccessToken(): {
+function signJwt(claims: Record<string, unknown>): string {
+	const header = Buffer.from(JSON.stringify({ alg: "HS256", typ: "JWT" })).toString("base64url");
+	const payload = Buffer.from(JSON.stringify(claims)).toString("base64url");
+	const signature = hmacSign(`${header}.${payload}`);
+	return `${header}.${payload}.${signature}`;
+}
+
+export interface TokenResponse {
 	access_token: string;
 	token_type: string;
 	expires_in: number;
-} {
-	const header = Buffer.from(JSON.stringify({ alg: "HS256", typ: "JWT" })).toString("base64url");
+	refresh_token: string;
+}
+
+export function issueAccessToken(): TokenResponse {
 	const now = Math.floor(Date.now() / 1000);
-	const payload = Buffer.from(
-		JSON.stringify({ sub: clientId, iat: now, exp: now + TOKEN_EXPIRY }),
-	).toString("base64url");
-	const signature = hmacSign(`${header}.${payload}`);
 	return {
-		access_token: `${header}.${payload}.${signature}`,
+		access_token: signJwt({ sub: clientId, iat: now, exp: now + TOKEN_EXPIRY }),
 		token_type: "Bearer",
 		expires_in: TOKEN_EXPIRY,
+		refresh_token: signJwt({
+			sub: clientId,
+			iat: now,
+			exp: now + REFRESH_TOKEN_EXPIRY,
+			typ: "refresh",
+		}),
 	};
 }
 
-export function validateAccessToken(token: string): boolean {
-	if (!oauthEnabled) return false;
+const JwtClaimsSchema = z.object({ exp: z.number(), typ: z.string().optional() });
+
+function verifyJwt(token: string): z.infer<typeof JwtClaimsSchema> | null {
+	if (!oauthEnabled) return null;
 	const dot1 = token.indexOf(".");
 	const dot2 = token.lastIndexOf(".");
-	if (dot1 === -1 || dot1 === dot2) return false;
+	if (dot1 === -1 || dot1 === dot2) return null;
 	const headerPayload = token.slice(0, dot2);
 	const signature = token.slice(dot2 + 1);
 	const payload = token.slice(dot1 + 1, dot2);
 	const expected = hmacSign(headerPayload);
-	if (expected.length !== signature.length) return false;
-	if (!timingSafeEqual(Buffer.from(signature), Buffer.from(expected))) return false;
+	if (expected.length !== signature.length) return null;
+	if (!timingSafeEqual(Buffer.from(signature), Buffer.from(expected))) return null;
 	try {
-		const claims: { exp?: unknown } = JSON.parse(Buffer.from(payload, "base64url").toString());
-		return typeof claims.exp === "number" && claims.exp > Math.floor(Date.now() / 1000);
+		const result = JwtClaimsSchema.safeParse(
+			JSON.parse(Buffer.from(payload, "base64url").toString()),
+		);
+		if (!result.success) return null;
+		if (result.data.exp <= Math.floor(Date.now() / 1000)) return null;
+		return result.data;
 	} catch {
-		return false;
+		return null;
 	}
+}
+
+export function validateAccessToken(token: string): boolean {
+	const claims = verifyJwt(token);
+	return claims !== null && claims.typ === undefined;
+}
+
+export function validateRefreshToken(token: string): boolean {
+	const claims = verifyJwt(token);
+	return claims !== null && claims.typ === "refresh";
 }

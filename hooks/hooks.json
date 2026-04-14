@@ -1,15 +1,15 @@
 {
-  "hooks": {
-    "Setup": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "cd \"${CLAUDE_PLUGIN_ROOT}\" && bun install && bunx playwright install chromium",
-            "statusMessage": "Installing k-ruoka dependencies and browser..."
-          }
-        ]
-      }
-    ]
-  }
+	"hooks": {
+		"Setup": [
+			{
+				"hooks": [
+					{
+						"type": "command",
+						"command": "cd \"${CLAUDE_PLUGIN_ROOT}\" && bun install && bunx playwright install chromium",
+						"statusMessage": "Installing k-ruoka dependencies and browser..."
+					}
+				]
+			}
+		]
+	}
 }
