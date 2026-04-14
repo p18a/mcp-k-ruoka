@@ -1,5 +1,4 @@
 import { existsSync, rmSync } from "node:fs";
-import { homedir } from "node:os";
 import { join } from "node:path";
 import type { BrowserContext, Page } from "playwright";
 import { chromium } from "playwright-extra";
@@ -14,14 +13,11 @@ let page: Page | null = null;
 let buildNumber: string | null = null;
 let initPromise: Promise<Page> | null = null;
 
-const headless = process.env.HEADLESS !== "false";
-const dataDir =
-	process.env.BROWSER_DATA_DIR?.replace("~", homedir()) ??
-	join(import.meta.dirname, "..", "..", ".browser-data");
+const dataDir = join(import.meta.dirname, "..", "..", ".browser-data");
 
 async function launch(): Promise<void> {
 	context = await chromium.launchPersistentContext(dataDir, {
-		headless,
+		headless: true,
 		userAgent:
 			"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
 		locale: "fi-FI",

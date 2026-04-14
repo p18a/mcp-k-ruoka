@@ -72,8 +72,6 @@ The server runs on `http://localhost:3001/mcp`. Without auth env vars set, it ru
 | `OAUTH_CLIENT_SECRET` | OAuth client secret (required for claude.ai) |
 | `MCP_AUTH_TOKEN` | Static bearer token (alternative to OAuth) |
 | `PORT` | Server port (default: 3001) |
-| `HEADLESS` | Run browser headless (default: true) |
-| `BROWSER_DATA_DIR` | Browser data directory (default: `.browser-data/`) |
 
 ## Disclaimer
 
