@@ -2,6 +2,8 @@
 
 Unofficial MCP server for searching [K-Ruoka](https://www.k-ruoka.fi) grocery products. Uses Playwright to proxy K-Ruoka's internal API through a real browser session (Cloudflare bypass via stealth plugin).
 
+![Example: searching for rye bread at Iso Omena](example.png)
+
 ## Tools
 
 - **search_products** — Search products by query at a specific store
