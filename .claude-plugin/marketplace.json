@@ -1,0 +1,14 @@
+{
+  "name": "k-ruoka",
+  "owner": {
+    "name": "p18a"
+  },
+  "plugins": [
+    {
+      "name": "k-ruoka",
+      "source": "./",
+      "description": "Search K-Ruoka grocery products and find stores via MCP",
+      "version": "0.1.0"
+    }
+  ]
+}

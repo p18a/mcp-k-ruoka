@@ -7,6 +7,17 @@ Unofficial MCP server for searching [K-Ruoka](https://www.k-ruoka.fi) grocery pr
 - **search_products** — Search products by query at a specific store
 - **get_stores** — List K-Ruoka stores, optionally filtered by city
 
+## Install as Claude Code plugin
+
+Requires [Bun](https://bun.sh) installed.
+
+```
+/plugin marketplace add p18a/mcp-k-ruoka
+/plugin install k-ruoka@k-ruoka
+```
+
+Dependencies and Playwright browser are installed automatically on first load.
+
 ## Deploy to Fly.io
 
 ```bash
@@ -28,15 +39,32 @@ fly deploy
 
 Note the client ID and secret — you'll need them to connect.
 
-## Connect from claude.ai
+## Connect via stdio
 
-1. Go to Settings > Integrations > Add integration
-2. Enter your server URL: `https://<your-app>.fly.dev/mcp`
-3. Enter the client ID and secret you generated above
+Runs the server as a subprocess — simplest option for local use.
 
-## Connect from Claude Desktop / Claude Code
+```bash
+git clone https://github.com/p18a/mcp-k-ruoka.git
+cd mcp-k-ruoka
+bun install
+```
 
-Add to your MCP config:
+Then add to your MCP client config:
+
+```json
+{
+  "mcpServers": {
+    "k-ruoka": {
+      "command": "bun",
+      "args": ["run", "/path/to/mcp-k-ruoka/src/index.ts", "--stdio"]
+    }
+  }
+}
+```
+
+## Connect via Streamable HTTP
+
+For remote deployments. Deploy first (see above), then point your MCP client at it:
 
 ```json
 {
@@ -52,7 +80,7 @@ Add to your MCP config:
 }
 ```
 
-For direct bearer token auth, set `MCP_AUTH_TOKEN` as a Fly secret and use it in the header above.
+For direct bearer token auth, set `MCP_AUTH_TOKEN` as a Fly secret and use it in the header above. For OAuth, configure `OAUTH_CLIENT_ID` and `OAUTH_CLIENT_SECRET` on both the server and your MCP client.
 
 ## Local development
 
@@ -62,7 +90,7 @@ cp .env.example .env
 bun run dev
 ```
 
-The server runs on `http://localhost:3001/mcp`. Without auth env vars set, it runs unauthenticated.
+The server runs on `http://localhost:3001/mcp` by default (Streamable HTTP). Pass `--stdio` for stdio transport.
 
 ## Environment variables
 

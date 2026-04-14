@@ -1,0 +1,9 @@
+{
+  "k-ruoka": {
+    "command": "bun",
+    "args": ["run", "${CLAUDE_PLUGIN_ROOT}/src/index.ts", "--stdio"],
+    "env": {
+      "BROWSER_DATA_DIR": "${CLAUDE_PLUGIN_DATA}/.browser-data"
+    }
+  }
+}

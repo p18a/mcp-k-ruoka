@@ -59,9 +59,25 @@ Two auth mechanisms, usable independently or together:
 
 ## Connecting
 
+### Stdio (local)
+
+Run with `--stdio` flag for stdio transport (used by Claude Desktop, Claude Code, etc.):
+
+```json
+{
+  "mcpServers": {
+    "k-ruoka": {
+      "command": "bun",
+      "args": ["run", "/path/to/mcp-k-ruoka/src/index.ts", "--stdio"]
+    }
+  }
+}
+```
+
+### Streamable HTTP (remote / claude.ai)
+
 The server runs on `http://localhost:3001/mcp` by default (configure via `PORT` env var).
 
-Add to claude_desktop_config.json:
 ```json
 {
   "mcpServers": {
