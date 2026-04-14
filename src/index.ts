@@ -59,6 +59,7 @@ function getBaseUrl(req: Request): string {
 }
 
 Bun.serve({
+	hostname: "0.0.0.0",
 	port,
 	async fetch(req: Request): Promise<Response> {
 		const url = new URL(req.url);
