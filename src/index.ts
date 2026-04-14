@@ -3,6 +3,9 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
 import { isInitializeRequest } from "@modelcontextprotocol/sdk/types.js";
 import {
+	createAuthCode,
+	exchangeAuthCode,
+	isKnownClientId,
 	issueAccessToken,
 	oauthEnabled,
 	validateAccessToken,
@@ -77,27 +80,72 @@ Bun.serve({
 				if (url.pathname === "/.well-known/oauth-authorization-server") {
 					return Response.json({
 						issuer: base,
+						authorization_endpoint: `${base}/authorize`,
 						token_endpoint: `${base}/token`,
 						token_endpoint_auth_methods_supported: ["client_secret_post"],
-						grant_types_supported: ["client_credentials"],
-						response_types_supported: [],
+						grant_types_supported: ["authorization_code", "client_credentials"],
+						response_types_supported: ["code"],
+						code_challenge_methods_supported: ["S256"],
 					});
 				}
+			}
+
+			if (url.pathname === "/authorize" && req.method === "GET") {
+				const responseType = url.searchParams.get("response_type");
+				const id = url.searchParams.get("client_id");
+				const redirectUri = url.searchParams.get("redirect_uri");
+				const state = url.searchParams.get("state");
+				const codeChallenge = url.searchParams.get("code_challenge");
+				const codeChallengeMethod = url.searchParams.get("code_challenge_method") ?? "S256";
+
+				if (responseType !== "code" || !id || !redirectUri || !codeChallenge) {
+					return Response.json({ error: "invalid_request" }, { status: 400 });
+				}
+				if (!isKnownClientId(id)) {
+					return Response.json({ error: "invalid_client" }, { status: 401 });
+				}
+
+				const code = createAuthCode({
+					codeChallenge,
+					codeChallengeMethod,
+					redirectUri,
+					clientId: id,
+				});
+				const redirect = new URL(redirectUri);
+				redirect.searchParams.set("code", code);
+				if (state) redirect.searchParams.set("state", state);
+				return Response.redirect(redirect.toString(), 302);
 			}
 
 			if (url.pathname === "/token" && req.method === "POST") {
 				const params = new URLSearchParams(await req.text());
 				const grantType = params.get("grant_type");
-				const id = params.get("client_id");
-				const secret = params.get("client_secret");
 
-				if (grantType !== "client_credentials") {
-					return Response.json({ error: "unsupported_grant_type" }, { status: 400 });
+				if (grantType === "authorization_code") {
+					const code = params.get("code");
+					const codeVerifier = params.get("code_verifier");
+					const redirectUri = params.get("redirect_uri");
+					const id = params.get("client_id");
+					if (!code || !codeVerifier || !redirectUri || !id) {
+						return Response.json({ error: "invalid_request" }, { status: 400 });
+					}
+					const token = exchangeAuthCode({ code, codeVerifier, redirectUri, clientId: id });
+					if (!token) {
+						return Response.json({ error: "invalid_grant" }, { status: 400 });
+					}
+					return Response.json(token);
 				}
-				if (!id || !secret || !validateClientCredentials(id, secret)) {
-					return Response.json({ error: "invalid_client" }, { status: 401 });
+
+				if (grantType === "client_credentials") {
+					const id = params.get("client_id");
+					const secret = params.get("client_secret");
+					if (!id || !secret || !validateClientCredentials(id, secret)) {
+						return Response.json({ error: "invalid_client" }, { status: 401 });
+					}
+					return Response.json(issueAccessToken());
 				}
-				return Response.json(issueAccessToken());
+
+				return Response.json({ error: "unsupported_grant_type" }, { status: 400 });
 			}
 		}
 

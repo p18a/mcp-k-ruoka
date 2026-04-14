@@ -1,13 +1,19 @@
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 
 const clientId = process.env.OAUTH_CLIENT_ID ?? "";
 const clientSecret = process.env.OAUTH_CLIENT_SECRET ?? "";
 const TOKEN_EXPIRY = 3600;
+const CODE_TTL = 60_000; // 60 seconds in ms
 
 export const oauthEnabled = clientId.length > 0 && clientSecret.length > 0;
 
 function hmacSign(data: string): string {
 	return createHmac("sha256", clientSecret).update(data).digest("base64url");
+}
+
+export function isKnownClientId(id: string): boolean {
+	if (!oauthEnabled || id.length !== clientId.length) return false;
+	return timingSafeEqual(Buffer.from(id), Buffer.from(clientId));
 }
 
 export function validateClientCredentials(id: string, secret: string): boolean {
@@ -18,6 +24,56 @@ export function validateClientCredentials(id: string, secret: string): boolean {
 		timingSafeEqual(Buffer.from(secret), Buffer.from(clientSecret))
 	);
 }
+
+// --- Authorization codes (PKCE) ---
+
+interface StoredCode {
+	codeChallenge: string;
+	codeChallengeMethod: string;
+	redirectUri: string;
+	clientId: string;
+	expiresAt: number;
+}
+
+const authCodes = new Map<string, StoredCode>();
+
+export function createAuthCode(params: {
+	codeChallenge: string;
+	codeChallengeMethod: string;
+	redirectUri: string;
+	clientId: string;
+}): string {
+	const code = randomBytes(32).toString("hex");
+	authCodes.set(code, { ...params, expiresAt: Date.now() + CODE_TTL });
+	return code;
+}
+
+export function exchangeAuthCode(params: {
+	code: string;
+	codeVerifier: string;
+	redirectUri: string;
+	clientId: string;
+}): ReturnType<typeof issueAccessToken> | null {
+	const stored = authCodes.get(params.code);
+	if (!stored) return null;
+	authCodes.delete(params.code);
+
+	if (stored.expiresAt < Date.now()) return null;
+	if (stored.redirectUri !== params.redirectUri) return null;
+	if (stored.clientId !== params.clientId) return null;
+
+	// Verify PKCE
+	if (stored.codeChallengeMethod === "S256") {
+		const expected = createHash("sha256").update(params.codeVerifier).digest("base64url");
+		if (expected !== stored.codeChallenge) return null;
+	} else if (params.codeVerifier !== stored.codeChallenge) {
+		return null;
+	}
+
+	return issueAccessToken();
+}
+
+// --- JWT access tokens ---
 
 export function issueAccessToken(): {
 	access_token: string;
