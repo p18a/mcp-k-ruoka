@@ -3,8 +3,6 @@ import { logger } from "../logger.ts";
 import type { Product, SearchResult, Store } from "../types.ts";
 import { getBuildNumber, getPage, resetSession } from "./session.ts";
 
-// -- Zod schemas for API responses --
-
 const BlockedResponseSchema = z.object({
 	_blocked: z.literal(true),
 	_status: z.number(),
@@ -70,8 +68,6 @@ const ApiStoresResponseSchema = z.object({
 const StoresEvalResultSchema = z.union([BlockedResponseSchema, ApiStoresResponseSchema]);
 type StoresEvalResult = z.infer<typeof StoresEvalResultSchema>;
 
-// -- Helpers --
-
 function isBlocked(
 	data: SearchEvalResult | StoresEvalResult,
 ): data is z.infer<typeof BlockedResponseSchema> {
@@ -95,8 +91,6 @@ function parseProduct(item: z.infer<typeof ApiProductSchema>): Product {
 		category: p.category?.localizedName?.finnish ?? null,
 	};
 }
-
-// -- API fetchers --
 
 async function fetchSearchApi(
 	query: string,
@@ -159,8 +153,6 @@ async function fetchStoresApi(): Promise<StoresEvalResult> {
 
 	return StoresEvalResultSchema.parse(raw);
 }
-
-// -- Exported functions --
 
 export async function searchProducts(
 	query: string,

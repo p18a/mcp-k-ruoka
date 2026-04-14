@@ -33,16 +33,15 @@ async function navigateToSite(p: Page): Promise<void> {
 		waitUntil: "domcontentloaded",
 		timeout: 30000,
 	});
-	// Wait for Cloudflare challenge to resolve
+	// Cloudflare challenge page uses this title while it's active
 	await p.waitForFunction('document.title !== "Just a moment..."', {
 		timeout: 15000,
 	});
 	logger.info("Cloudflare challenge passed");
 
-	// Extract build number from response header
 	buildNumber = (await response?.headerValue("k-ruoka-build")) ?? null;
 
-	// Fallback: extract build number from page scripts
+	// Fallback: not all responses include the header
 	if (!buildNumber) {
 		buildNumber = await p.evaluate(`
 			(() => {
@@ -66,7 +65,7 @@ async function doInitialize(): Promise<Page> {
 		page = await context.newPage();
 	}
 
-	// Navigate to the site if not already there (needed for Cloudflare cookies)
+	// Needed to obtain Cloudflare cookies before API calls work
 	if (!page.url().startsWith(BASE_URL)) {
 		await navigateToSite(page);
 	}
@@ -98,7 +97,6 @@ export async function resetSession(): Promise<void> {
 	}
 	context = null;
 
-	// Nuke the data directory
 	if (existsSync(dataDir)) {
 		rmSync(dataDir, { recursive: true, force: true });
 		logger.info({ dataDir }, "Browser data directory removed");

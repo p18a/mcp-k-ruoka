@@ -56,6 +56,7 @@ Two auth mechanisms, usable independently or together:
 - Parse all I/O boundaries with Zod — API responses, JSON.parse results, external data. Never trust runtime shapes via `as` assertions; validate with `.parse()` / `.safeParse()`. (`as const` is fine — it narrows literals, doesn't assert shapes)
 - All tool inputs validated with Zod schemas via MCP SDK
 - Use pino for logging (`src/logger.ts`), never `console.log/warn/error` — logs must go to stderr to avoid interfering with stdio MCP transport
+- Comments should explain *why*, not *what* — no section dividers, no restating what the code does
 - Browser context is reused across calls — don't create new contexts per request
 - Keep scraper logic isolated from MCP tool definitions
 

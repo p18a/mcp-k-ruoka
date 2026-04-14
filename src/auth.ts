@@ -27,8 +27,6 @@ export function validateClientCredentials(id: string, secret: string): boolean {
 	);
 }
 
-// --- Authorization codes (PKCE) ---
-
 interface StoredCode {
 	codeChallenge: string;
 	codeChallengeMethod: string;
@@ -79,15 +77,12 @@ export function exchangeAuthCode(params: {
 	if (stored.redirectUri !== params.redirectUri) return null;
 	if (stored.clientId !== params.clientId) return null;
 
-	// Verify PKCE (S256 only)
 	const expected = createHash("sha256").update(params.codeVerifier).digest("base64url");
 	if (expected.length !== stored.codeChallenge.length) return null;
 	if (!timingSafeEqual(Buffer.from(expected), Buffer.from(stored.codeChallenge))) return null;
 
 	return issueAccessToken();
 }
-
-// --- JWT tokens ---
 
 function signJwt(claims: Record<string, unknown>): string {
 	const header = Buffer.from(JSON.stringify({ alg: "HS256", typ: "JWT" })).toString("base64url");

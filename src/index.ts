@@ -232,8 +232,7 @@ function startHttpServer() {
 					return existing.handleRequest(req);
 				}
 
-				// Session ID was provided but not found — session is stale (e.g. server restarted).
-				// Per MCP spec, return 404 so the client knows to re-initialize.
+				// Per MCP spec, 404 tells the client to re-initialize
 				if (sessionId) {
 					return Response.json(
 						{ jsonrpc: "2.0", error: { code: -32001, message: "Session not found" }, id: null },
@@ -293,7 +292,7 @@ function startHttpServer() {
 
 	logger.info({ port, url: `http://localhost:${port}/mcp` }, "K-Ruoka MCP server listening");
 
-	// Eagerly initialize browser session so the first request isn't slow
+	// Pre-warm so the first request isn't slow
 	getPage().catch((err) => {
 		logger.warn({ err }, "Browser pre-init failed (will retry on first request)");
 	});
