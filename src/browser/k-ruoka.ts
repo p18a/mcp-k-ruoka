@@ -218,12 +218,12 @@ export async function getStores(city?: string): Promise<Store[]> {
 		}
 	}
 
-	let stores = (data.results ?? [])
+	let stores: Store[] = (data.results ?? [])
 		.filter((s) => s.isWebStore)
 		.map((s) => ({
 			id: s.id,
 			name: s.name,
-			chain: "k-ruoka",
+			chain: "k-ruoka" as const,
 			location: s.location,
 		}));
 

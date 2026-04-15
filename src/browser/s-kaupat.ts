@@ -13,8 +13,6 @@ const ExtensionsParamSchema = z.object({
 	}),
 });
 
-// --- Persisted query hash cache ---
-
 const hashCache = new Map<string, string>();
 let extractPromise: Promise<void> | null = null;
 
@@ -104,8 +102,6 @@ async function getHash(operationName: string): Promise<string> {
 	return hash;
 }
 
-// --- Zod schemas for product search response ---
-
 const ProductImageSchema = z.object({
 	urlTemplate: z.string(),
 });
@@ -160,8 +156,6 @@ const PersistedQueryNotFoundSchema = z.object({
 	),
 });
 
-// --- Product mapping ---
-
 function buildImageUrl(urlTemplate: string): string {
 	return urlTemplate.replace("{MODIFIERS}", "w_200,h_200").replace("{EXTENSION}", "png");
 }
@@ -185,8 +179,6 @@ function mapProduct(item: z.infer<typeof ProductListItemSchema>): Product {
 		category: p.hierarchyPath[0]?.name ?? null,
 	};
 }
-
-// --- Product search ---
 
 async function fetchProducts(
 	query: string,
@@ -266,8 +258,6 @@ export async function searchProducts(
 	};
 }
 
-// --- Store listing via RemoteStoreSearch GraphQL API ---
-
 const StoreSearchStoreSchema = z.object({
 	id: z.string(),
 	name: z.string(),
@@ -329,38 +319,47 @@ async function fetchStoreSearchPage(
 	return StoreSearchResponseSchema.parse(raw);
 }
 
-async function fetchAllStores(query: string | null): Promise<Store[]> {
-	const hash = await getHash("RemoteStoreSearch");
+const MAX_STORE_PAGES = 50;
 
+async function fetchAllStoresWithHash(query: string | null, hash: string): Promise<Store[]> {
 	const stores: Store[] = [];
 	let cursor: string | null = null;
+	let pages = 0;
+
+	do {
+		const parsed = await fetchStoreSearchPage(query, cursor, hash);
+		const result = parsed.data.searchStores;
+
+		for (const s of result.stores) {
+			stores.push({
+				id: s.id,
+				name: s.name,
+				chain: "s-kaupat",
+				location: s.location.address.postcodeName.default,
+			});
+		}
+
+		cursor = result.cursor;
+		pages++;
+	} while (cursor && pages < MAX_STORE_PAGES);
+
+	return stores;
+}
+
+async function fetchAllStores(query: string | null): Promise<Store[]> {
+	let hash = await getHash("RemoteStoreSearch");
 
 	try {
-		do {
-			const parsed = await fetchStoreSearchPage(query, cursor, hash);
-			const page = parsed.data.searchStores;
-
-			for (const s of page.stores) {
-				stores.push({
-					id: s.id,
-					name: s.name,
-					chain: "s-kaupat",
-					location: s.location.address.postcodeName.default,
-				});
-			}
-
-			cursor = page.cursor;
-		} while (cursor);
+		return await fetchAllStoresWithHash(query, hash);
 	} catch (err) {
 		if (err instanceof Error && err.message === "PERSISTED_QUERY_NOT_FOUND") {
 			logger.warn("Store search hash expired, re-extracting");
 			hashCache.clear();
-			return fetchAllStores(query);
+			hash = await getHash("RemoteStoreSearch");
+			return fetchAllStoresWithHash(query, hash);
 		}
 		throw err;
 	}
-
-	return stores;
 }
 
 export async function getStores(city?: string): Promise<Store[]> {

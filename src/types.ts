@@ -1,3 +1,5 @@
+export type Chain = "k-ruoka" | "s-kaupat";
+
 export interface Product {
 	name: string;
 	price: number | null;
@@ -11,7 +13,7 @@ export interface Product {
 export interface Store {
 	id: string;
 	name: string;
-	chain: string;
+	chain: Chain;
 	location: string;
 }
 
@@ -20,5 +22,5 @@ export interface SearchResult {
 	totalCount: number;
 	query: string;
 	storeId: string;
-	chain: string;
+	chain: Chain;
 }
