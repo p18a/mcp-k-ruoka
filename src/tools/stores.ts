@@ -2,7 +2,8 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import * as z from "zod/v4";
 import * as kRuoka from "../browser/k-ruoka.ts";
 import * as sKaupat from "../browser/s-kaupat.ts";
-import type { Store } from "../types.ts";
+import { logger } from "../logger.ts";
+import type { Chain, Store } from "../types.ts";
 
 export function registerStoresTool(server: McpServer): void {
 	server.registerTool(
@@ -22,37 +23,52 @@ export function registerStoresTool(server: McpServer): void {
 			}),
 		},
 		async ({ city, chain }) => {
-			try {
-				const fetchers: Promise<Store[]>[] = [];
+			const fetchers: Array<{ chain: Chain; promise: Promise<Store[]> }> = [];
 
-				if (!chain || chain === "k-ruoka") {
-					fetchers.push(kRuoka.getStores(city));
+			if (!chain || chain === "k-ruoka") {
+				fetchers.push({ chain: "k-ruoka", promise: kRuoka.getStores(city) });
+			}
+			if (!chain || chain === "s-kaupat") {
+				fetchers.push({ chain: "s-kaupat", promise: sKaupat.getStores(city) });
+			}
+
+			const settled = await Promise.allSettled(fetchers.map((f) => f.promise));
+
+			const stores: Store[] = [];
+			const errors: string[] = [];
+
+			for (const [i, result] of settled.entries()) {
+				const chainName = fetchers[i]?.chain ?? "unknown";
+				if (result.status === "fulfilled") {
+					stores.push(...result.value);
+				} else {
+					const reason: unknown = result.reason;
+					const msg = reason instanceof Error ? reason.message : String(reason);
+					logger.error({ chain: chainName, err: reason }, "Store fetch failed");
+					errors.push(`${chainName}: ${msg}`);
 				}
-				if (!chain || chain === "s-kaupat") {
-					fetchers.push(sKaupat.getStores(city));
-				}
+			}
 
-				const results = (await Promise.all(fetchers)).flat();
-
+			if (stores.length === 0 && errors.length > 0) {
 				return {
 					content: [
 						{
 							type: "text" as const,
-							text: JSON.stringify(results, null, 2),
-						},
-					],
-				};
-			} catch (error) {
-				return {
-					content: [
-						{
-							type: "text" as const,
-							text: `Error fetching stores: ${error instanceof Error ? error.message : String(error)}`,
+							text: `Error fetching stores: ${errors.join("; ")}`,
 						},
 					],
 					isError: true,
 				};
 			}
+
+			const parts: string[] = [JSON.stringify(stores, null, 2)];
+			if (errors.length > 0) {
+				parts.push(`\nWarning: some chains failed: ${errors.join("; ")}`);
+			}
+
+			return {
+				content: [{ type: "text" as const, text: parts.join("") }],
+			};
 		},
 	);
 }

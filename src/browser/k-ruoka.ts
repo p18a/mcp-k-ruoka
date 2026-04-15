@@ -136,7 +136,11 @@ async function fetchSearchApi(
 			if (res.status === 403 || body.includes("cf-challenge")) {
 				return { _blocked: true, _status: res.status, _body: body };
 			}
-			return JSON.parse(body);
+			try {
+				return JSON.parse(body);
+			} catch {
+				return { _blocked: true, _status: res.status, _body: body };
+			}
 		},
 		{ query, storeId, limit, buildNumber, timeout: API_TIMEOUT },
 	);
@@ -158,7 +162,11 @@ async function fetchStoresApi(): Promise<StoresEvalResult> {
 		if (res.status === 403 || body.includes("cf-challenge")) {
 			return { _blocked: true, _status: res.status, _body: body };
 		}
-		return JSON.parse(body);
+		try {
+			return JSON.parse(body);
+		} catch {
+			return { _blocked: true, _status: res.status, _body: body };
+		}
 	}, API_TIMEOUT);
 
 	try {

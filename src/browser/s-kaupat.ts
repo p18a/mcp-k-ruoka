@@ -85,7 +85,12 @@ async function extractHashes(): Promise<void> {
 		await page.close();
 	}
 
-	logger.info({ operations: [...hashCache.keys()] }, "S-Kaupat hashes extracted");
+	const ops = [...hashCache.keys()];
+	logger.info({ operations: ops }, "S-Kaupat hashes extracted");
+
+	if (!hashCache.has("RemoteFilteredProducts")) {
+		throw new Error("Failed to extract RemoteFilteredProducts hash");
+	}
 }
 
 export async function warmup(): Promise<void> {
