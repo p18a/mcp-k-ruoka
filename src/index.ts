@@ -14,6 +14,7 @@ import {
 	validateClientCredentials,
 	validateRefreshToken,
 } from "./auth.ts";
+import { warmup as warmupSKaupat } from "./browser/s-kaupat.ts";
 import { getPage } from "./browser/session.ts";
 import { logger } from "./logger.ts";
 import { registerSearchTool } from "./tools/search.ts";
@@ -38,7 +39,10 @@ if (process.argv.includes("--stdio")) {
 	const transport = new StdioServerTransport();
 	await server.connect(transport);
 	getPage().catch((err) => {
-		logger.warn({ err }, "Browser pre-init failed (will retry on first request)");
+		logger.warn({ err }, "K-Ruoka pre-init failed (will retry on first request)");
+	});
+	warmupSKaupat().catch((err) => {
+		logger.warn({ err }, "S-Kaupat pre-init failed (will retry on first request)");
 	});
 } else {
 	startHttpServer();
@@ -305,6 +309,9 @@ function startHttpServer() {
 
 	// Pre-warm so the first request isn't slow
 	getPage().catch((err) => {
-		logger.warn({ err }, "Browser pre-init failed (will retry on first request)");
+		logger.warn({ err }, "K-Ruoka pre-init failed (will retry on first request)");
+	});
+	warmupSKaupat().catch((err) => {
+		logger.warn({ err }, "S-Kaupat pre-init failed (will retry on first request)");
 	});
 }

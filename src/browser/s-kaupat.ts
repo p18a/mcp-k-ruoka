@@ -88,6 +88,16 @@ async function extractHashes(): Promise<void> {
 	logger.info({ operations: [...hashCache.keys()] }, "S-Kaupat hashes extracted");
 }
 
+export async function warmup(): Promise<void> {
+	if (hashCache.size > 0) return;
+	if (!extractPromise) {
+		extractPromise = extractHashes().finally(() => {
+			extractPromise = null;
+		});
+	}
+	await extractPromise;
+}
+
 async function getHash(operationName: string): Promise<string> {
 	if (!hashCache.has(operationName)) {
 		if (!extractPromise) {
