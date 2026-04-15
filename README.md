@@ -108,9 +108,11 @@ The server runs on `http://localhost:3001/mcp` by default (Streamable HTTP). Pas
 | `LOG_LEVEL` | pino log level (default: info) |
 | `BROWSER_DATA_DIR` | Persistent browser data directory (default: `.browser-data/`) |
 
-## Usage example
+## Usage examples
 
 <img src="example.png" alt="Example: searching for rye bread at Iso Omena" width="600">
+
+<img src="example2.png" alt="Example: finding the best price-to-alcohol ratio for fortified wines at Alko" width="600">
 
 ## Disclaimer
 
