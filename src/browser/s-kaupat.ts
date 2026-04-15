@@ -23,6 +23,11 @@ async function extractHashes(): Promise<void> {
 	const ctx = await getContext();
 	const page = await ctx.newPage();
 
+	let resolveHashCaptured: (() => void) | null = null;
+	const hashCaptured = new Promise<void>((resolve) => {
+		resolveHashCaptured = resolve;
+	});
+
 	try {
 		await page.route("https://api.s-kaupat.fi/**", async (route) => {
 			const url = new URL(route.request().url());
@@ -35,6 +40,7 @@ async function extractHashes(): Promise<void> {
 					if (result.success) {
 						hashCache.set(op, result.data.persistedQuery.sha256Hash);
 						logger.debug({ op }, "Captured persisted query hash");
+						if (op === "RemoteFilteredProducts") resolveHashCaptured?.();
 					}
 				} catch {
 					// Ignore malformed JSON
@@ -49,9 +55,17 @@ async function extractHashes(): Promise<void> {
 		});
 
 		await page.goto(`${ORIGIN}/hakutulokset?queryString=test`, {
-			waitUntil: "networkidle",
+			waitUntil: "commit",
 			timeout: 30_000,
 		});
+
+		// Wait for the product search hash specifically, not just networkidle
+		await Promise.race([
+			hashCaptured,
+			page.waitForTimeout(15_000).then(() => {
+				logger.warn("Timed out waiting for RemoteFilteredProducts hash");
+			}),
+		]);
 	} finally {
 		await page.close();
 	}
@@ -213,13 +227,18 @@ export async function searchProducts(
 	try {
 		parsed = SearchResponseSchema.parse(raw);
 	} catch (err) {
-		logger.error({ err }, "Failed to parse S-Kaupat search response");
+		logger.error({ err, raw }, "Failed to parse S-Kaupat search response");
 		throw err;
 	}
 
-	const products = parsed.data.store.products.productListItems.map(mapProduct);
+	const { total, productListItems } = parsed.data.store.products;
+	const products = productListItems.map(mapProduct);
 
-	logger.info({ query, resultCount: products.length }, "S-Kaupat search completed");
+	if (products.length === 0) {
+		logger.warn({ query, storeId, total, raw }, "S-Kaupat returned 0 products");
+	}
+
+	logger.info({ query, resultCount: products.length, total }, "S-Kaupat search completed");
 
 	return {
 		products,
