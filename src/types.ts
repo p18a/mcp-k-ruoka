@@ -1,4 +1,4 @@
-export type Chain = "k-ruoka" | "s-kaupat";
+export type Chain = "k-ruoka" | "s-kaupat" | "alko";
 
 export interface Product {
 	name: string;

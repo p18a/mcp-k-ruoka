@@ -1,6 +1,6 @@
 # mcp-ruoka
 
-MCP server for Finnish grocery product search across k-ruoka.fi and s-kaupat.fi. Single-client personal tool — keep auth, session management, and infrastructure simple rather than building for multi-tenant scale.
+MCP server for Finnish grocery and alcohol product search across K-Ruoka (k-ruoka.fi), S-Kaupat (s-kaupat.fi), and Alko (alko.fi). Single-client personal tool — keep auth, session management, and infrastructure simple rather than building for multi-tenant scale.
 
 ## Commands
 

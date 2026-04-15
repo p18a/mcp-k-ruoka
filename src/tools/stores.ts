@@ -1,5 +1,6 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import * as z from "zod/v4";
+import * as alko from "../browser/alko.ts";
 import * as kRuoka from "../browser/k-ruoka.ts";
 import * as sKaupat from "../browser/s-kaupat.ts";
 import { logger } from "../logger.ts";
@@ -10,16 +11,16 @@ export function registerStoresTool(server: McpServer): void {
 		"get_stores",
 		{
 			description:
-				"List grocery stores from K-Ruoka (k-ruoka.fi) and S-Kaupat (s-kaupat.fi) chains. Returns store IDs needed for search_products. Always call this first to get a valid storeId and chain before searching.",
+				"List stores from K-Ruoka (k-ruoka.fi), S-Kaupat (s-kaupat.fi), and Alko (alko.fi). Returns store IDs and chain values needed for search_products.",
 			inputSchema: z.object({
 				city: z
 					.string()
 					.optional()
 					.describe("Filter stores by city name (e.g., 'Helsinki', 'Tampere')"),
 				chain: z
-					.enum(["k-ruoka", "s-kaupat"])
+					.enum(["k-ruoka", "s-kaupat", "alko"])
 					.optional()
-					.describe("Filter by grocery chain. If omitted, returns stores from both chains."),
+					.describe("Filter by chain. If omitted, returns stores from all chains."),
 			}),
 		},
 		async ({ city, chain }) => {
@@ -30,6 +31,9 @@ export function registerStoresTool(server: McpServer): void {
 			}
 			if (!chain || chain === "s-kaupat") {
 				fetchers.push({ chain: "s-kaupat", promise: sKaupat.getStores(city) });
+			}
+			if (!chain || chain === "alko") {
+				fetchers.push({ chain: "alko", promise: alko.getStores(city) });
 			}
 
 			const settled = await Promise.allSettled(fetchers.map((f) => f.promise));

@@ -14,6 +14,7 @@ import {
 	validateClientCredentials,
 	validateRefreshToken,
 } from "./auth.ts";
+import { warmup as warmupAlko } from "./browser/alko.ts";
 import { warmup as warmupSKaupat } from "./browser/s-kaupat.ts";
 import { getPage } from "./browser/session.ts";
 import { logger } from "./logger.ts";
@@ -43,6 +44,9 @@ if (process.argv.includes("--stdio")) {
 	});
 	warmupSKaupat().catch((err) => {
 		logger.warn({ err }, "S-Kaupat pre-init failed (will retry on first request)");
+	});
+	warmupAlko().catch((err) => {
+		logger.warn({ err }, "Alko pre-init failed (will retry on first request)");
 	});
 } else {
 	startHttpServer();
@@ -313,5 +317,8 @@ function startHttpServer() {
 	});
 	warmupSKaupat().catch((err) => {
 		logger.warn({ err }, "S-Kaupat pre-init failed (will retry on first request)");
+	});
+	warmupAlko().catch((err) => {
+		logger.warn({ err }, "Alko pre-init failed (will retry on first request)");
 	});
 }
