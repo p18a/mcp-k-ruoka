@@ -174,7 +174,7 @@ export async function searchProducts(
 	storeId: string,
 	limit: number,
 ): Promise<SearchResult> {
-	logger.info({ query, storeId, limit }, "Searching products");
+	logger.info({ query, storeId, limit }, "K-Ruoka product search");
 
 	let data = await fetchSearchApi(query, storeId, limit);
 
@@ -193,18 +193,19 @@ export async function searchProducts(
 
 	const products = (data.result ?? []).map(parseProduct);
 
-	logger.info({ query, resultCount: products.length }, "Product search completed");
+	logger.info({ query, resultCount: products.length }, "K-Ruoka search completed");
 
 	return {
 		products,
 		totalCount: products.length,
 		query,
 		storeId,
+		chain: "k-ruoka",
 	};
 }
 
 export async function getStores(city?: string): Promise<Store[]> {
-	logger.info({ city: city ?? "all" }, "Fetching stores");
+	logger.info({ city: city ?? "all" }, "Fetching K-Ruoka stores");
 
 	let data = await fetchStoresApi();
 
@@ -222,7 +223,7 @@ export async function getStores(city?: string): Promise<Store[]> {
 		.map((s) => ({
 			id: s.id,
 			name: s.name,
-			chain: s.chainName,
+			chain: "k-ruoka",
 			location: s.location,
 		}));
 
@@ -231,7 +232,7 @@ export async function getStores(city?: string): Promise<Store[]> {
 		stores = stores.filter((s) => s.location.toLowerCase().includes(lower));
 	}
 
-	logger.info({ city: city ?? "all", storeCount: stores.length }, "Stores fetched");
+	logger.info({ city: city ?? "all", storeCount: stores.length }, "K-Ruoka stores fetched");
 
 	return stores;
 }

@@ -1,6 +1,6 @@
 {
 	"mcpServers": {
-		"k-ruoka": {
+		"ruoka": {
 			"command": "bun",
 			"args": ["run", "${CLAUDE_PLUGIN_ROOT}/src/index.ts", "--stdio"],
 			"env": {

@@ -1,14 +1,14 @@
 {
-	"name": "k-ruoka",
+	"name": "ruoka",
 	"owner": {
 		"name": "p18a"
 	},
 	"plugins": [
 		{
-			"name": "k-ruoka",
+			"name": "ruoka",
 			"source": "./",
-			"description": "Search K-Ruoka grocery products and find stores via MCP",
-			"version": "0.1.0"
+			"description": "Search Finnish grocery products across k-ruoka.fi and s-kaupat.fi via MCP",
+			"version": "0.2.0"
 		}
 	]
 }

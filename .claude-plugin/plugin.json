@@ -1,10 +1,10 @@
 {
-	"name": "k-ruoka",
-	"description": "Search K-Ruoka grocery products and find stores via MCP",
-	"version": "0.1.0",
+	"name": "ruoka",
+	"description": "Search Finnish grocery products across K-Ruoka and S-Kaupat via MCP",
+	"version": "0.2.0",
 	"author": {
 		"name": "p18a"
 	},
-	"repository": "https://github.com/p18a/mcp-k-ruoka",
+	"repository": "https://github.com/p18a/mcp-ruoka",
 	"license": "MIT"
 }

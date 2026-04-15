@@ -23,8 +23,8 @@ const logoPath = join(import.meta.dirname, "..", "logo.png");
 
 function createServer(baseUrl?: string): McpServer {
 	const server = new McpServer({
-		name: "k-ruoka",
-		version: "0.1.0",
+		name: "ruoka-mcp",
+		version: "0.2.0",
 		...(baseUrl && { icons: [{ src: `${baseUrl}/logo.png`, mimeType: "image/png" }] }),
 	});
 	registerSearchTool(server);
@@ -300,7 +300,7 @@ function startHttpServer() {
 		},
 	});
 
-	logger.info({ port, url: `http://localhost:${port}/mcp` }, "K-Ruoka MCP server listening");
+	logger.info({ port, url: `http://localhost:${port}/mcp` }, "Ruoka MCP server listening");
 
 	// Pre-warm so the first request isn't slow
 	getPage().catch((err) => {

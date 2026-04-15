@@ -1,19 +1,19 @@
-# mcp-k-ruoka
+# mcp-ruoka
 
-Unofficial MCP server for searching [K-Ruoka](https://www.k-ruoka.fi) grocery products. Uses Playwright to proxy K-Ruoka's internal API through a real browser session (Cloudflare bypass via stealth plugin).
+Unofficial MCP server for searching Finnish grocery products across [K-Ruoka](https://www.k-ruoka.fi) and [S-Kaupat](https://www.s-kaupat.fi). Uses Playwright to proxy K-Ruoka's internal API through a real browser session (Cloudflare bypass via stealth plugin) and direct HTTP for S-Kaupat's GraphQL API.
 
 ## Tools
 
-- **search_products** — Search products by query at a specific store
-- **get_stores** — List K-Ruoka stores, optionally filtered by city
+- **search_products** — Search products by query at a specific store (K-Ruoka or S-Kaupat)
+- **get_stores** — List grocery stores, optionally filtered by city and/or chain
 
 ## Install as Claude Code plugin
 
 Requires [Bun](https://bun.sh) installed.
 
 ```
-/plugin marketplace add p18a/mcp-k-ruoka
-/plugin install k-ruoka@k-ruoka
+/plugin marketplace add p18a/mcp-ruoka
+/plugin install ruoka@ruoka
 ```
 
 Dependencies and Playwright browser are installed automatically on first load.
@@ -22,8 +22,8 @@ Dependencies and Playwright browser are installed automatically on first load.
 
 ```bash
 # Clone and enter the repo
-git clone https://github.com/p18a/mcp-k-ruoka.git
-cd mcp-k-ruoka
+git clone https://github.com/p18a/mcp-ruoka.git
+cd mcp-ruoka
 
 # Create fly.toml from example (pick your own app name)
 cp fly.example.toml fly.toml
@@ -45,8 +45,8 @@ Note the client ID and secret — you'll need them to connect.
 Runs the server as a subprocess — simplest option for local use.
 
 ```bash
-git clone https://github.com/p18a/mcp-k-ruoka.git
-cd mcp-k-ruoka
+git clone https://github.com/p18a/mcp-ruoka.git
+cd mcp-ruoka
 bun install
 ```
 
@@ -55,9 +55,9 @@ Then add to your MCP client config:
 ```json
 {
   "mcpServers": {
-    "k-ruoka": {
+    "ruoka": {
       "command": "bun",
-      "args": ["run", "/path/to/mcp-k-ruoka/src/index.ts", "--stdio"]
+      "args": ["run", "/path/to/mcp-ruoka/src/index.ts", "--stdio"]
     }
   }
 }
@@ -70,7 +70,7 @@ For remote deployments. Deploy first (see above), then point your MCP client at 
 ```json
 {
   "mcpServers": {
-    "k-ruoka": {
+    "ruoka": {
       "type": "streamable-http",
       "url": "https://<your-app>.fly.dev/mcp",
       "headers": {
@@ -110,4 +110,4 @@ The server runs on `http://localhost:3001/mcp` by default (Streamable HTTP). Pas
 
 ## Disclaimer
 
-This project is unofficial and not affiliated with K Group or K-Ruoka. It accesses publicly available data through their website. Use responsibly.
+This project is unofficial and not affiliated with K Group, K-Ruoka, S Group, or S-Kaupat. It accesses publicly available data through their websites. Use responsibly.

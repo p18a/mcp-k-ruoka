@@ -1,10 +1,10 @@
 {
-	"name": "mcp-k-ruoka",
+	"name": "mcp-ruoka",
 	"module": "src/index.ts",
 	"type": "module",
 	"private": true,
 	"bin": {
-		"mcp-k-ruoka": "src/index.ts"
+		"mcp-ruoka": "src/index.ts"
 	},
 	"scripts": {
 		"dev": "bun run --watch src/index.ts",

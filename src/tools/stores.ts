@@ -1,28 +1,44 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import * as z from "zod/v4";
-import { getStores } from "../browser/scraper.ts";
+import * as kRuoka from "../browser/k-ruoka.ts";
+import * as sKaupat from "../browser/s-kaupat.ts";
+import type { Store } from "../types.ts";
 
 export function registerStoresTool(server: McpServer): void {
 	server.registerTool(
 		"get_stores",
 		{
 			description:
-				"List available K-Ruoka stores. Returns store IDs needed for search_products. Always call this first to get a valid storeId before searching.",
+				"List available grocery stores. Returns store IDs needed for search_products. Always call this first to get a valid storeId before searching.",
 			inputSchema: z.object({
 				city: z
 					.string()
 					.optional()
 					.describe("Filter stores by city name (e.g., 'Helsinki', 'Tampere')"),
+				chain: z
+					.enum(["k-ruoka", "s-kaupat"])
+					.optional()
+					.describe("Filter by grocery chain. If omitted, returns stores from both chains."),
 			}),
 		},
-		async ({ city }) => {
+		async ({ city, chain }) => {
 			try {
-				const stores = await getStores(city);
+				const fetchers: Promise<Store[]>[] = [];
+
+				if (!chain || chain === "k-ruoka") {
+					fetchers.push(kRuoka.getStores(city));
+				}
+				if (!chain || chain === "s-kaupat") {
+					fetchers.push(sKaupat.getStores(city));
+				}
+
+				const results = (await Promise.all(fetchers)).flat();
+
 				return {
 					content: [
 						{
 							type: "text" as const,
-							text: JSON.stringify(stores, null, 2),
+							text: JSON.stringify(results, null, 2),
 						},
 					],
 				};

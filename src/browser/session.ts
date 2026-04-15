@@ -13,6 +13,7 @@ let context: BrowserContext | null = null;
 let page: Page | null = null;
 let buildNumber: string | null = null;
 let initPromise: Promise<Page> | null = null;
+let launchPromise: Promise<void> | null = null;
 
 const dataDir =
 	process.env.BROWSER_DATA_DIR ?? join(import.meta.dirname, "..", "..", ".browser-data");
@@ -57,10 +58,23 @@ async function navigateToSite(p: Page): Promise<void> {
 	logger.info({ buildNumber }, "Build number resolved");
 }
 
+async function ensureLaunched(): Promise<void> {
+	if (context) return;
+	if (launchPromise) return launchPromise;
+	launchPromise = launch().finally(() => {
+		launchPromise = null;
+	});
+	return launchPromise;
+}
+
+export async function getContext(): Promise<BrowserContext> {
+	await ensureLaunched();
+	if (!context) throw new Error("Browser context not initialized");
+	return context;
+}
+
 async function doInitialize(): Promise<Page> {
-	if (!context) {
-		await launch();
-	}
+	await ensureLaunched();
 
 	if (!page || page.isClosed()) {
 		if (!context) throw new Error("Browser context not initialized");

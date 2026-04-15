@@ -20,4 +20,5 @@ export interface SearchResult {
 	totalCount: number;
 	query: string;
 	storeId: string;
+	chain: string;
 }

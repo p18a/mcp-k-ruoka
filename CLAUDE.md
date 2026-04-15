@@ -1,6 +1,6 @@
-# mcp-k-ruoka
+# mcp-ruoka
 
-MCP server that proxies K-Ruoka grocery product search via Playwright. Single-client personal tool — keep auth, session management, and infrastructure simple rather than building for multi-tenant scale.
+MCP server for Finnish grocery product search across k-ruoka.fi and s-kaupat.fi. Single-client personal tool — keep auth, session management, and infrastructure simple rather than building for multi-tenant scale.
 
 ## Commands
 
@@ -19,4 +19,4 @@ MCP server that proxies K-Ruoka grocery product search via Playwright. Single-cl
 - Use pino for logging (`src/logger.ts`), never `console.log/warn/error` — logs must go to stderr to avoid interfering with stdio MCP transport
 - Comments should explain *why*, not *what* — no section dividers, no restating what the code does
 - Browser context is reused across calls — don't create new contexts per request
-- Keep scraper logic isolated from MCP tool definitions
+- Keep chain-specific browser/API logic (`src/browser/`) isolated from MCP tool definitions (`src/tools/`)
