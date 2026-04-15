@@ -18,14 +18,40 @@ let launchPromise: Promise<void> | null = null;
 const dataDir =
 	process.env.BROWSER_DATA_DIR ?? join(import.meta.dirname, "..", "..", ".browser-data");
 
+function isBrowserDead(err: unknown): boolean {
+	if (!(err instanceof Error)) return false;
+	const msg = err.message.toLowerCase();
+	return (
+		msg.includes("target closed") ||
+		msg.includes("browser has been closed") ||
+		msg.includes("browser.close") ||
+		msg.includes("protocol error") ||
+		msg.includes("connection refused")
+	);
+}
+
 async function launch(): Promise<void> {
 	logger.info({ dataDir }, "Launching browser");
-	context = await chromium.launchPersistentContext(dataDir, {
-		headless: true,
-		userAgent:
-			"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-		locale: "fi-FI",
-	});
+	try {
+		context = await chromium.launchPersistentContext(dataDir, {
+			headless: true,
+			userAgent:
+				"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+			locale: "fi-FI",
+		});
+	} catch (err) {
+		// Stale lock files or corrupted profile from unclean shutdown
+		logger.warn({ err }, "Browser launch failed, cleaning data dir and retrying");
+		if (existsSync(dataDir)) {
+			rmSync(dataDir, { recursive: true, force: true });
+		}
+		context = await chromium.launchPersistentContext(dataDir, {
+			headless: true,
+			userAgent:
+				"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+			locale: "fi-FI",
+		});
+	}
 	logger.info("Browser launched");
 }
 
@@ -35,10 +61,13 @@ async function navigateToSite(p: Page): Promise<void> {
 		waitUntil: "domcontentloaded",
 		timeout: 30000,
 	});
-	// Cloudflare challenge page uses this title while it's active
-	await p.waitForFunction('document.title !== "Just a moment..."', {
-		timeout: 15000,
-	});
+	try {
+		await p.waitForFunction('document.title !== "Just a moment..."', {
+			timeout: 15000,
+		});
+	} catch {
+		throw new Error("Cloudflare challenge timed out — may require interactive verification");
+	}
 	logger.info("Cloudflare challenge passed");
 
 	buildNumber = (await response?.headerValue("k-ruoka-build")) ?? null;
@@ -91,9 +120,18 @@ async function doInitialize(): Promise<Page> {
 
 export async function getPage(): Promise<Page> {
 	if (initPromise) return initPromise;
-	initPromise = doInitialize().finally(() => {
-		initPromise = null;
-	});
+	initPromise = doInitialize()
+		.catch(async (err) => {
+			if (isBrowserDead(err)) {
+				logger.warn({ err }, "Browser process dead, resetting session");
+				await resetSession();
+				return doInitialize();
+			}
+			throw err;
+		})
+		.finally(() => {
+			initPromise = null;
+		});
 	return initPromise;
 }
 
