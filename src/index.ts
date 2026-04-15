@@ -273,6 +273,7 @@ function startHttpServer() {
 	Bun.serve({
 		hostname: "0.0.0.0",
 		port,
+		idleTimeout: 120,
 		async fetch(req: Request): Promise<Response> {
 			const url = new URL(req.url);
 			logger.debug({ method: req.method, path: url.pathname }, "Incoming request");

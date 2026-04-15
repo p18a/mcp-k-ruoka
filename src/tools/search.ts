@@ -8,7 +8,7 @@ export function registerSearchTool(server: McpServer): void {
 		"search_products",
 		{
 			description:
-				"Search for grocery products filtered by store location. Supports K-Ruoka and S-Kaupat chains.",
+				"Search for grocery products at a specific store. Supports two Finnish grocery chains: K-Ruoka (k-ruoka.fi) and S-Kaupat (s-kaupat.fi). Requires a storeId and chain from get_stores.",
 			inputSchema: z.object({
 				query: z.string().min(1).describe("Search query for products (e.g., 'maito', 'leipä')"),
 				storeId: z

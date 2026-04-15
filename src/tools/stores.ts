@@ -9,7 +9,7 @@ export function registerStoresTool(server: McpServer): void {
 		"get_stores",
 		{
 			description:
-				"List available grocery stores. Returns store IDs needed for search_products. Always call this first to get a valid storeId before searching.",
+				"List grocery stores from K-Ruoka (k-ruoka.fi) and S-Kaupat (s-kaupat.fi) chains. Returns store IDs needed for search_products. Always call this first to get a valid storeId and chain before searching.",
 			inputSchema: z.object({
 				city: z
 					.string()
